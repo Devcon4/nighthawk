@@ -4,6 +4,11 @@
       "cwd": "/mnt/c/Code/nighthawk",
       "binaryPath": "/mnt/c/Code/nighthawk/Nighthawk",
       "binaryArgs": []
+    },
+    {
+      "cwd": "/mnt/c/Code/nighthawk/bin",
+      "binaryPath": "/mnt/c/Code/nighthawk/bin/nighthawk",
+      "binaryArgs": []
     }
   ],
   "files.associations": {
@@ -24,7 +29,8 @@
     "type_traits": "cpp",
     "typeinfo": "cpp",
     "utility": "cpp",
-    "stdexcept": "cpp"
+    "stdexcept": "cpp",
+    "chrono": "cpp"
   },
-  "C_Cpp.errorSquiggles": "disabled"
+  "C_Cpp.errorSquiggles": "enabled"
 }
