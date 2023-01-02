@@ -1,0 +1,30 @@
+{
+  "makefile.launchConfigurations": [
+    {
+      "cwd": "/mnt/c/Code/nighthawk",
+      "binaryPath": "/mnt/c/Code/nighthawk/Nighthawk",
+      "binaryArgs": []
+    }
+  ],
+  "files.associations": {
+    "iostream": "cpp",
+    "*.tcc": "cpp",
+    "cmath": "cpp",
+    "compare": "cpp",
+    "concepts": "cpp",
+    "cstdio": "cpp",
+    "cstdlib": "cpp",
+    "cstring": "cpp",
+    "vector": "cpp",
+    "exception": "cpp",
+    "initializer_list": "cpp",
+    "limits": "cpp",
+    "new": "cpp",
+    "cstdint": "cpp",
+    "type_traits": "cpp",
+    "typeinfo": "cpp",
+    "utility": "cpp",
+    "stdexcept": "cpp"
+  },
+  "C_Cpp.errorSquiggles": "disabled"
+}

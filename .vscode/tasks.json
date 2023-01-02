@@ -1,0 +1,22 @@
+{
+  "tasks": [
+    {
+      "type": "cppbuild",
+      "label": "C/C++: Make Nighthawk",
+      "command": "make",
+      "args": [],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [
+        "$gcc"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "detail": "Points to makefile."
+    }
+  ],
+  "version": "2.0.0"
+}
