@@ -8,7 +8,7 @@
       "name": "(gdb) Launch",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${workspaceFolder}/nighthawk",
+      "program": "${workspaceFolder}/bin/nighthawk",
       "args": [],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",

@@ -16,6 +16,5 @@ layout(push_constant) uniform constants {
 } PushConstants;
 
 void main() {
-  outColor = vec4(fragColor.x, fragColor.y + (60 * PushConstants.deltaTime), fragColor.z, 1.0);
+  outColor = vec4(fragColor, 1.0);
 }
-
