@@ -30,7 +30,12 @@
     "typeinfo": "cpp",
     "utility": "cpp",
     "stdexcept": "cpp",
-    "chrono": "cpp"
+    "chrono": "cpp",
+    "iosfwd": "cpp",
+    "set": "cpp"
   },
-  "C_Cpp.errorSquiggles": "enabled"
+  "C_Cpp.errorSquiggles": "enabled",
+  "cmake.configureSettings": {
+    "CMAKE_TOOLCHAIN_FILE": "/mnt/c/code/nighthawk/vcpkg/scripts/buildsystems/vcpkg.cmake"
+  }
 }

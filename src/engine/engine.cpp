@@ -5,10 +5,12 @@
 #include <chrono>
 #include <cstdint>
 #include <cstring>
+#include <fstream>
 #include <iostream>
 #include <limits>
 #include <optional>
 #include <set>
+#include <vector>
 
 #define VK_USE_PLATFORM_WIN32_KHR
 #define GLFW_INCLUDE_VULKAN
@@ -17,6 +19,9 @@
 #define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "../../lib/stbImage/stb_image.h"
 
 struct Vertex {
   glm::vec2 pos;
@@ -49,9 +54,9 @@ struct Vertex {
 };
 
 struct UniformBufferObject {
-  glm::mat4 model;
-  glm::mat4 view;
-  glm::mat4 proj;
+  alignas(16) glm::mat4 model;
+  alignas(16) glm::mat4 view;
+  alignas(16) glm::mat4 proj;
 };
 
 const std::vector<Vertex> vertices = {
@@ -114,6 +119,24 @@ SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device,
   }
 
   return details;
+}
+
+std::vector<char> Nighthawk::LoadShader(const std::string &path) {
+  std::ifstream file(path, std::ios::ate | std::ios::binary);
+
+  if (!file.is_open()) {
+    throw std::runtime_error("Failed to load shader at " + path);
+  }
+
+  size_t fileSize = (size_t)file.tellg();
+  std::vector<char> buffer(fileSize);
+
+  file.seekg(0);
+  file.read(buffer.data(), fileSize);
+
+  std::cout << "Loaded shader: " + path + "\n";
+  file.close();
+  return buffer;
 }
 
 QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device,
@@ -432,7 +455,7 @@ void Nighthawk::NighthawkEngine::updateUniformBuffer(uint32_t currentImage) {
 
   UniformBufferObject ubo{};
   ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f),
-                          glm::vec3(0.0f, 0.0f, 1.0f));
+                          glm::vec3(0.0f, 1.0f, 0.0f));
 
   ubo.view =
       glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f),
@@ -607,6 +630,18 @@ void Nighthawk::NighthawkEngine::createVertexBuffer() {
   vkFreeMemory(device, stagingBufferMemory, nullptr);
 }
 
+void Nighthawk::NighthawkEngine::createTextureImage() {
+  int texWidth, texHeight, texChannels;
+  stbi_uc *pixels = stbi_load("textures/own-1.jpg", &texWidth, &texHeight,
+                              &texChannels, STBI_rgb_alpha);
+
+  VkDeviceSize imageSize = texWidth * texHeight * 4;
+
+  if (!pixels) {
+    throw std::runtime_error("failed to load texture image!");
+  }
+}
+
 void Nighthawk::NighthawkEngine::createDescriptorPool() {
   VkDescriptorPoolSize poolSize{};
   poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -674,6 +709,7 @@ void Nighthawk::NighthawkEngine::initVulkan() {
   createGraphicsPipeline();
   createFramebuffers();
   createCommandPool();
+  createTextureImage();
   createVertexBuffer();
   createIndexBuffer();
   createUniformBuffers();
@@ -737,8 +773,8 @@ void Nighthawk::NighthawkEngine::recreateSwapChain() {
 }
 
 void Nighthawk::NighthawkEngine::createGraphicsPipeline() {
-  auto vertCode = Nighthawk::LoadShader("bin/shaders/triangle_vert.spv");
-  auto fragCode = Nighthawk::LoadShader("bin/shaders/triangle_frag.spv");
+  auto vertCode = LoadShader("bin/shaders/triangle_vert.spv");
+  auto fragCode = LoadShader("bin/shaders/triangle_frag.spv");
 
   VkShaderModule vertModule = createShaderModule(device, vertCode);
   VkShaderModule fragModule = createShaderModule(device, fragCode);

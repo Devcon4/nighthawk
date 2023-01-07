@@ -32,4 +32,11 @@ done
   sudo cp /tmp/glslc/install/bin/glslc /usr/local/bin/glslc;
 }
 
+[ ! -f "./lib/stbImage/stb_image.h" ] && {
+  echo "${Yellow}Installing stb_image.h...${Color_Off}";
+  rm -rf ./lib/stbImage/;
+  mkdir -p /lib/stbImage/;
+  wget -P ./lib/stbImage/ "https://raw.githubusercontent.com/nothings/stb/master/stb_image.h";
+}
+
 echo "${Cyan}Done!${Color_Off}"

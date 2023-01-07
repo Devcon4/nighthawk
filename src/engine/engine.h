@@ -92,6 +92,7 @@ class NighthawkEngine {
   void createUniformBuffers();
   void createIndexBuffer();
   void createVertexBuffer();
+  void createTextureImage();
   void createDescriptorPool();
   void createDescriptorSets();
   void cleanup();
