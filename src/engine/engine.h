@@ -48,6 +48,10 @@ class NighthawkEngine {
   VkImageView textureImageView;
   VkSampler textureSampler;
 
+  VkImage depthImage;
+  VkDeviceMemory depthImageMemory;
+  VkImageView depthImageView;
+
   std::vector<VkBuffer> uniformBuffers;
   std::vector<VkDeviceMemory> uniformBuffersMemory;
   std::vector<void *> uniformBuffersMapped;
@@ -102,7 +106,8 @@ class NighthawkEngine {
   void createIndexBuffer();
   void createVertexBuffer();
   void createTextureImage();
-  VkImageView createImageView(VkImage image, VkFormat format);
+  VkImageView createImageView(VkImage image, VkFormat format,
+                              VkImageAspectFlags aspectFlags);
   void createTextureSampler();
   void createTextureImageView();
   VkCommandBuffer beginSingleTimeCommands();
@@ -113,6 +118,12 @@ class NighthawkEngine {
                    VkDeviceMemory &imageMemory);
   void createDescriptorPool();
   void createDescriptorSets();
+  VkFormat findSupportedFormat(const std::vector<VkFormat> &canidates,
+                               VkImageTiling tiling,
+                               VkFormatFeatureFlags features);
+  VkFormat findDepthFormat();
+  bool hasStencilComponent(VkFormat format);
+  void createDepthResources();
   void cleanup();
 
   void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
