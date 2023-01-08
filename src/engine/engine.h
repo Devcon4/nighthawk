@@ -43,6 +43,11 @@ class NighthawkEngine {
   VkBuffer indexBuffer;
   VkDeviceMemory indexBufferMemory;
 
+  VkImage textureImage;
+  VkDeviceMemory textureImageMemory;
+  VkImageView textureImageView;
+  VkSampler textureSampler;
+
   std::vector<VkBuffer> uniformBuffers;
   std::vector<VkDeviceMemory> uniformBuffersMemory;
   std::vector<void *> uniformBuffersMapped;
@@ -88,11 +93,24 @@ class NighthawkEngine {
                     VkMemoryPropertyFlags properties, VkBuffer &buffer,
                     VkDeviceMemory &bufferMemory);
   void createDescriptorSetLayout();
+  void transitionImageLayout(VkImage image, VkFormat format,
+                             VkImageLayout oldLayout, VkImageLayout newLayout);
+  void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width,
+                         uint32_t height);
   void copyBuffer(VkBuffer srcBuffer, VkBuffer distBuffer, VkDeviceSize size);
   void createUniformBuffers();
   void createIndexBuffer();
   void createVertexBuffer();
   void createTextureImage();
+  VkImageView createImageView(VkImage image, VkFormat format);
+  void createTextureSampler();
+  void createTextureImageView();
+  VkCommandBuffer beginSingleTimeCommands();
+  void endSingleTimeCommands(VkCommandBuffer commandBuffer);
+  void createImage(uint32_t width, uint32_t height, VkFormat format,
+                   VkImageTiling tiling, VkImageUsageFlags usage,
+                   VkMemoryPropertyFlags properties, VkImage &image,
+                   VkDeviceMemory &imageMemory);
   void createDescriptorPool();
   void createDescriptorSets();
   void cleanup();
