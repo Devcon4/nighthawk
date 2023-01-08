@@ -17,6 +17,11 @@
       },
       "detail": "Points to makefile."
     },
+    {
+      "type": "shell",
+      "label": "Run Nighthawk",
+      "command": "./out/build/wsl/Nighthawk"
+    }
   ],
   "version": "2.0.0"
 }

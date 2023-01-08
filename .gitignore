@@ -37,3 +37,4 @@ bin/
 nighthawk
 vcpkg
 build
+.vs

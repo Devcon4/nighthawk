@@ -1,7 +1,8 @@
 {
-  "name": "Nighthawk",
+  "name": "nighthawk",
   "version-string": "0.1.0",
   "dependencies": [
-    "stb"
+    "glfw3",
+    "glm"
   ]
 }

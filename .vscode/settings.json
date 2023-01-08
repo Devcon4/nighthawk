@@ -35,6 +35,7 @@
     "set": "cpp"
   },
   "C_Cpp.errorSquiggles": "enabled",
+  "cmake.useCMakePresets": "auto",
   "cmake.configureSettings": {
     "CMAKE_TOOLCHAIN_FILE": "/mnt/c/code/nighthawk/vcpkg/scripts/buildsystems/vcpkg.cmake"
   }
