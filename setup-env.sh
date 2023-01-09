@@ -32,11 +32,28 @@ done
   sudo cp /tmp/glslc/install/bin/glslc /usr/local/bin/glslc;
 }
 
-[ ! -f "./lib/stbImage/stb_image.h" ] && {
+[ ! -f "./lib/stb_image/stb_image.h" ] && {
   echo "${Yellow}Installing stb_image.h...${Color_Off}";
-  rm -rf ./lib/stbImage/;
-  mkdir -p /lib/stbImage/;
-  wget -P ./lib/stbImage/ "https://raw.githubusercontent.com/nothings/stb/master/stb_image.h";
+  mkdir -p /lib/stb_image/;
+  wget -P ./lib/stb_image/ "https://raw.githubusercontent.com/nothings/stb/master/stb_image.h";
+}
+[ ! -f "./lib/stb_image/stb_image_write.h" ] && {
+  echo "${Yellow}Installing stb_image_write.h...${Color_Off}";
+  mkdir -p /lib/stb_image/;
+  wget -P ./lib/stb_image/ "https://raw.githubusercontent.com/nothings/stb/master/stb_image_write.h";
+}
+
+[ ! -f "./lib/json/json.hpp" ] && {
+  echo "${Yellow}Installing json.hpp...${Color_Off}";
+  rm -rf ./lib/json/;
+  mkdir -p /lib/json/;
+  wget -P ./lib/json/ "https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp";
+}
+[ ! -f "./lib/tinygltf/tiny_gltf.h" ] && {
+  echo "${Yellow}Installing tiny_gltf...${Color_Off}";
+  rm -rf ./lib/tinygltf/;
+  mkdir -p /lib/tinygltf/;
+  wget -P ./lib/tinygltf/ "https://raw.githubusercontent.com/syoyo/tinygltf/release/tiny_gltf.h";
 }
 
 echo "${Cyan}Done!${Color_Off}"

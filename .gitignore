@@ -33,6 +33,8 @@
 
 # Build artifacts
 bin/
+lib/**
+!lib/CMakeLists.txt
 *.exe
 nighthawk
 vcpkg

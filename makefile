@@ -4,7 +4,7 @@ LDFLAGS = -lglfw -lvulkan -ldl -lpthread -lX11 -lXxf86vm -lXrandr -lXi
 .PHONY: test clean watch glslc resources
 
 nighthawk: src/**/*.cpp
-		g++ $(CFLAGS) -g -o bin/nighthawk src/main.cpp src/**/*.cpp -I lib/**/ $(LDFLAGS)
+		g++ $(CFLAGS) -g -o bin/nighthawk src/main.cpp src/**/*.cpp -I lib $(LDFLAGS)
 
 watch:
 		while true; do inotifywait -qr -e modify -e create -e delete -e move ./src/**; echo "Files changed; rebuilding..."; make nighthawk; echo "Done!"; done

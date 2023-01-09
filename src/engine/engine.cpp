@@ -11,6 +11,7 @@
 #include <optional>
 #include <set>
 #include <vector>
+#include <filesystem>
 
 #define VK_USE_PLATFORM_WIN32_KHR
 #define GLFW_INCLUDE_VULKAN
@@ -22,7 +23,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
-#include "../../lib/stbImage/stb_image.h"
+#include "../../lib/stb_image/stb_image.h"
 
 struct Vertex {
   glm::vec3 pos;
@@ -133,7 +134,11 @@ SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device,
 }
 
 std::vector<char> Nighthawk::LoadShader(const std::string &path) {
-  std::ifstream file(path, std::ios::ate | std::ios::binary);
+  auto fullPath = std::filesystem::current_path() / path;
+  if (!std::filesystem::exists(fullPath)) {
+    throw std::runtime_error("Path does not exist " + fullPath.string());
+  }
+  std::ifstream file(fullPath.string(), std::ios::ate | std::ios::binary);
 
   if (!file.is_open()) {
     throw std::runtime_error("Failed to load shader at " + path);
@@ -1094,6 +1099,8 @@ void Nighthawk::NighthawkEngine::recreateSwapChain() {
 }
 
 void Nighthawk::NighthawkEngine::createGraphicsPipeline() {
+
+
   auto vertCode = LoadShader("bin/shaders/triangle_vert.spv");
   auto fragCode = LoadShader("bin/shaders/triangle_frag.spv");
 
