@@ -23,6 +23,7 @@ if [ "" = "$PKG_OK" ]; then
 fi
 done
 
+
 [ ! -f "/usr/local/bin/glslc" ] && {
   echo "${Yellow}Installing glslc...${Color_Off}"
   rm -rf /tmp/glslc;
@@ -32,28 +33,28 @@ done
   sudo cp /tmp/glslc/install/bin/glslc /usr/local/bin/glslc;
 }
 
-[ ! -f "./lib/stb_image/stb_image.h" ] && {
+mkdir -p /lib/;
+
+[ ! -f "./lib/stb_image.h" ] && {
   echo "${Yellow}Installing stb_image.h...${Color_Off}";
-  mkdir -p /lib/stb_image/;
-  wget -P ./lib/stb_image/ "https://raw.githubusercontent.com/nothings/stb/master/stb_image.h";
+  wget -P ./lib/ "https://raw.githubusercontent.com/nothings/stb/master/stb_image.h";
 }
-[ ! -f "./lib/stb_image/stb_image_write.h" ] && {
+[ ! -f "./lib/stb_image_write.h" ] && {
   echo "${Yellow}Installing stb_image_write.h...${Color_Off}";
-  mkdir -p /lib/stb_image/;
-  wget -P ./lib/stb_image/ "https://raw.githubusercontent.com/nothings/stb/master/stb_image_write.h";
+  wget -P ./lib/ "https://raw.githubusercontent.com/nothings/stb/master/stb_image_write.h";
 }
 
-[ ! -f "./lib/json/json.hpp" ] && {
+[ ! -f "./lib/json.hpp" ] && {
   echo "${Yellow}Installing json.hpp...${Color_Off}";
-  rm -rf ./lib/json/;
-  mkdir -p /lib/json/;
-  wget -P ./lib/json/ "https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp";
+  wget -P ./lib/ "https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp";
 }
-[ ! -f "./lib/tinygltf/tiny_gltf.h" ] && {
+[ ! -f "./lib/tiny_gltf.h" ] && {
   echo "${Yellow}Installing tiny_gltf...${Color_Off}";
-  rm -rf ./lib/tinygltf/;
-  mkdir -p /lib/tinygltf/;
-  wget -P ./lib/tinygltf/ "https://raw.githubusercontent.com/syoyo/tinygltf/release/tiny_gltf.h";
+  wget -P ./lib/ "https://raw.githubusercontent.com/syoyo/tinygltf/release/tiny_gltf.h";
+}
+[ ! -f "./lib/vk_mem_alloc.h" ] && {
+  echo "${Yellow}Installing vulkan memory allocator...${Color_Off}";
+  wget -P ./lib/ "https://raw.githubusercontent.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator/master/include/vk_mem_alloc.h";
 }
 
 echo "${Cyan}Done!${Color_Off}"

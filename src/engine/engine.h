@@ -5,6 +5,14 @@
 #include <string>
 #include <vector>
 
+// #include "../../lib/json.hpp"
+
+// #define TINYGLTF_IMPLEMENTATION
+// #include "../../lib/tiny_gltf.h"
+
+#define VMA_VULKAN_VERSION 1002000
+#include "../../lib/vk_mem_alloc.h"
+
 namespace Nighthawk {
 std::vector<char> LoadShader(const std::string &path);
 
@@ -39,21 +47,23 @@ class NighthawkEngine {
   std::vector<VkDescriptorSet> descriptorSets;
 
   VkBuffer vertexBuffer;
-  VkDeviceMemory vertexBufferMemory;
+  VmaAllocation vertexBufferAlloc;
   VkBuffer indexBuffer;
-  VkDeviceMemory indexBufferMemory;
+  VmaAllocation indexBufferAlloc;
 
   VkImage textureImage;
-  VkDeviceMemory textureImageMemory;
+  VmaAllocation textureImageAlloc;
   VkImageView textureImageView;
   VkSampler textureSampler;
 
   VkImage depthImage;
-  VkDeviceMemory depthImageMemory;
+  VmaAllocation depthImageAlloc;
   VkImageView depthImageView;
 
+  VmaAllocator allocator;
+
   std::vector<VkBuffer> uniformBuffers;
-  std::vector<VkDeviceMemory> uniformBuffersMemory;
+  std::vector<VmaAllocation> uniformBuffersAlloc;
   std::vector<void *> uniformBuffersMapped;
 
   std::vector<VkCommandBuffer> commandBuffers;
@@ -90,12 +100,13 @@ class NighthawkEngine {
   void createCommandPool();
   void createCommandBuffers();
   void createInstance();
+  void createVulkanMemoryAllocator();
   void mainLoop();
   void drawFrame();
   void updateUniformBuffer(uint32_t currentImage);
   void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
-                    VkMemoryPropertyFlags properties, VkBuffer &buffer,
-                    VkDeviceMemory &bufferMemory);
+                    VmaAllocationCreateFlags flags, VkBuffer &buffer,
+                    VmaAllocation &alloc);
   void createDescriptorSetLayout();
   void transitionImageLayout(VkImage image, VkFormat format,
                              VkImageLayout oldLayout, VkImageLayout newLayout);
@@ -114,8 +125,8 @@ class NighthawkEngine {
   void endSingleTimeCommands(VkCommandBuffer commandBuffer);
   void createImage(uint32_t width, uint32_t height, VkFormat format,
                    VkImageTiling tiling, VkImageUsageFlags usage,
-                   VkMemoryPropertyFlags properties, VkImage &image,
-                   VkDeviceMemory &imageMemory);
+                   VmaAllocationCreateFlags flags, VkImage &image,
+                   VmaAllocation &alloc);
   void createDescriptorPool();
   void createDescriptorSets();
   VkFormat findSupportedFormat(const std::vector<VkFormat> &canidates,

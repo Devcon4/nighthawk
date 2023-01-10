@@ -21,6 +21,7 @@ add_subdirectory(lib)
 set_target_properties(stbImage PROPERTIES LINKER_LANGUAGE CXX)
 set_target_properties(json PROPERTIES LINKER_LANGUAGE CXX)
 set_target_properties(tinygltf PROPERTIES LINKER_LANGUAGE CXX)
+set_target_properties(vkMemAlloc PROPERTIES LINKER_LANGUAGE CXX)
 
 target_link_libraries(Nighthawk PRIVATE Engine stbImage Vulkan::Vulkan glfw glm::glm tinygltf json)
 

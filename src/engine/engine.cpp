@@ -1,21 +1,19 @@
 #include "engine.h"
 
+#include <GLFW/glfw3.h>
+
 #include <algorithm>
 #include <array>
 #include <chrono>
 #include <cstdint>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <limits>
 #include <optional>
 #include <set>
 #include <vector>
-#include <filesystem>
-
-#define VK_USE_PLATFORM_WIN32_KHR
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -23,7 +21,13 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
-#include "../../lib/stb_image/stb_image.h"
+#include "../../lib/stb_image.h"
+
+#define VMA_VULKAN_VERSION 1002000
+#define VMA_STATIC_VULKAN_FUNCTIONS 0
+#define VMA_DYNAMIC_VULKAN_FUNCTIONS 1
+#define VMA_IMPLEMENTATION
+#include "../../lib/vk_mem_alloc.h"
 
 struct Vertex {
   glm::vec3 pos;
@@ -153,6 +157,42 @@ std::vector<char> Nighthawk::LoadShader(const std::string &path) {
   std::cout << "Loaded shader: " + path + "\n";
   file.close();
   return buffer;
+}
+
+// tinygltf::Model loadModel(const std::string path) {
+//   tinygltf::Model model;
+//   tinygltf::TinyGLTF loader;
+//   std::string err;
+//   std::string warn;
+//   bool ret = loader.LoadASCIIFromFile(&model, &err, &warn, path);
+
+//   if (!err.empty()) {
+//     printf("Error: %s\n", err.c_str());
+//   }
+
+//   if (!warn.empty()) {
+//     printf("Warn: %s\n", warn.c_str());
+//   }
+
+//   if (!ret) {
+//     throw std::runtime_error("failed to parse model: " + path + "\n");
+//   }
+// }
+
+void Nighthawk::NighthawkEngine::createVulkanMemoryAllocator() {
+  VmaVulkanFunctions vulkanFunctions = {};
+  vulkanFunctions.vkGetInstanceProcAddr = &vkGetInstanceProcAddr;
+  vulkanFunctions.vkGetDeviceProcAddr = &vkGetDeviceProcAddr;
+
+  VmaAllocatorCreateInfo allocatorCreateInfo = {};
+  allocatorCreateInfo.vulkanApiVersion = VK_API_VERSION_1_2;
+  allocatorCreateInfo.physicalDevice = physicalDevice;
+  allocatorCreateInfo.device = device;
+  allocatorCreateInfo.instance = instance;
+  allocatorCreateInfo.pVulkanFunctions = &vulkanFunctions;
+  if (vmaCreateAllocator(&allocatorCreateInfo, &allocator) != VK_SUCCESS) {
+    throw std::runtime_error("Failed to create vmaAllocator!");
+  };
 }
 
 QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device,
@@ -359,7 +399,7 @@ void Nighthawk::NighthawkEngine::createInstance() {
   appInfo.applicationVersion = VK_MAKE_VERSION(0, 0, 1);
   appInfo.pEngineName = "Nighthawk";
   appInfo.engineVersion = VK_MAKE_VERSION(0, 0, 1);
-  appInfo.apiVersion = VK_API_VERSION_1_0;
+  appInfo.apiVersion = VK_API_VERSION_1_2;
 
   VkInstanceCreateInfo createInfo{};
   createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -498,34 +538,21 @@ void Nighthawk::NighthawkEngine::updateUniformBuffer(uint32_t currentImage) {
 
 void Nighthawk::NighthawkEngine::createBuffer(VkDeviceSize size,
                                               VkBufferUsageFlags usage,
-                                              VkMemoryPropertyFlags properties,
+                                              VmaAllocationCreateFlags flags,
                                               VkBuffer &buffer,
-                                              VkDeviceMemory &bufferMemory) {
-  VkBufferCreateInfo bufferInfo{};
-  bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+                                              VmaAllocation &alloc) {
+  VkBufferCreateInfo bufferInfo = {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
   bufferInfo.size = size;
   bufferInfo.usage = usage;
-  bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-  if (vkCreateBuffer(device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
-    throw std::runtime_error("failed to create buffer!");
+  VmaAllocationCreateInfo allocInfo = {};
+  allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+  allocInfo.flags = flags;
+
+  if (vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &alloc,
+                      nullptr) != VK_SUCCESS) {
+    throw std::runtime_error("Failed to create buffer!");
   }
-
-  VkMemoryRequirements memRequirements;
-  vkGetBufferMemoryRequirements(device, buffer, &memRequirements);
-
-  VkMemoryAllocateInfo allocInfo{};
-  allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-  allocInfo.allocationSize = memRequirements.size;
-  allocInfo.memoryTypeIndex =
-      findMemoryType(memRequirements.memoryTypeBits, properties);
-
-  if (vkAllocateMemory(device, &allocInfo, nullptr, &bufferMemory) !=
-      VK_SUCCESS) {
-    throw std::runtime_error("failed to allocate buffer memory!");
-  }
-
-  vkBindBufferMemory(device, buffer, bufferMemory, 0);
 }
 
 void Nighthawk::NighthawkEngine::createDescriptorSetLayout() {
@@ -661,17 +688,15 @@ void Nighthawk::NighthawkEngine::createUniformBuffers() {
   VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 
   uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-  uniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
+  uniformBuffersAlloc.resize(MAX_FRAMES_IN_FLIGHT);
   uniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
 
   for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
     createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                     VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                 uniformBuffers[i], uniformBuffersMemory[i]);
+                 VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+                 uniformBuffers[i], uniformBuffersAlloc[i]);
 
-    vkMapMemory(device, uniformBuffersMemory[i], 0, bufferSize, 0,
-                &uniformBuffersMapped[i]);
+    vmaMapMemory(allocator, uniformBuffersAlloc[i], &uniformBuffersMapped[i]);
   }
 }
 
@@ -679,52 +704,59 @@ void Nighthawk::NighthawkEngine::createIndexBuffer() {
   VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
 
   VkBuffer stagingBuffer;
-  VkDeviceMemory stagingBufferMemory;
+  VmaAllocation stagingAlloc;
   createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                   VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-               stagingBuffer, stagingBufferMemory);
+               VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+               stagingBuffer, stagingAlloc);
 
   void *data;
-  vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
+  vmaMapMemory(allocator, stagingAlloc, &data);
   memcpy(data, indices.data(), (size_t)bufferSize);
-  vkUnmapMemory(device, stagingBufferMemory);
+  vmaUnmapMemory(allocator, stagingAlloc);
 
   createBuffer(
       bufferSize,
       VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
+      VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, indexBuffer,
+      indexBufferAlloc);
 
   copyBuffer(stagingBuffer, indexBuffer, bufferSize);
-
-  vkDestroyBuffer(device, stagingBuffer, nullptr);
-  vkFreeMemory(device, stagingBufferMemory, nullptr);
+  vmaDestroyBuffer(allocator, stagingBuffer, stagingAlloc);
 }
 
 void Nighthawk::NighthawkEngine::createVertexBuffer() {
   VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 
-  VkBuffer stagingBuffer;
-  VkDeviceMemory stagingBufferMemory;
-  createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                   VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-               stagingBuffer, stagingBufferMemory);
+  VkBufferCreateInfo stagingBufferInfo = {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+  stagingBufferInfo.size = bufferSize;
+  stagingBufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 
+  VmaAllocationCreateInfo stagingAllocInfo = {};
+  stagingAllocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+  stagingAllocInfo.flags =
+      VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+
+  VkBuffer stagingBuffer;
+  VmaAllocation stagingAlloc;
+
+  if (vmaCreateBuffer(allocator, &stagingBufferInfo, &stagingAllocInfo,
+                      &stagingBuffer, &stagingAlloc, nullptr) != VK_SUCCESS) {
+    throw std::runtime_error("Failed to create buffer!");
+  }
   void *data;
-  vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
+  vmaMapMemory(allocator, stagingAlloc, &data);
   memcpy(data, vertices.data(), (size_t)bufferSize);
-  vkUnmapMemory(device, stagingBufferMemory);
+  vmaUnmapMemory(allocator, stagingAlloc);
 
   createBuffer(
       bufferSize,
       VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
+      VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, vertexBuffer,
+      vertexBufferAlloc);
 
   copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
 
-  vkDestroyBuffer(device, stagingBuffer, nullptr);
-  vkFreeMemory(device, stagingBufferMemory, nullptr);
+  vmaDestroyBuffer(allocator, stagingBuffer, stagingAlloc);
 }
 
 void Nighthawk::NighthawkEngine::createTextureImage() {
@@ -732,43 +764,54 @@ void Nighthawk::NighthawkEngine::createTextureImage() {
   stbi_uc *pixels = stbi_load("bin/textures/owl-1.jpg", &texWidth, &texHeight,
                               &texChannels, STBI_rgb_alpha);
 
-  VkDeviceSize imageSize = texWidth * texHeight * 4;
-
   if (!pixels) {
     throw std::runtime_error("failed to load texture image!");
   }
 
-  VkBuffer stagingBuffer;
-  VkDeviceMemory stagingBufferMemory;
+  VkDeviceSize imageSize = texWidth * texHeight * 4;
 
-  createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                   VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-               stagingBuffer, stagingBufferMemory);
+  VkBufferCreateInfo bufferInfo = {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+  bufferInfo.size = imageSize;
+  bufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+
+  VmaAllocationCreateInfo stagingAllocInfo = {};
+  stagingAllocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+  stagingAllocInfo.flags =
+      VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+
+  VkBuffer stagingBuffer;
+  VmaAllocation stagingAlloc;
+
+  if (vmaCreateBuffer(allocator, &bufferInfo, &stagingAllocInfo, &stagingBuffer,
+                      &stagingAlloc, nullptr) != VK_SUCCESS) {
+    throw std::runtime_error("Failed to create buffer!");
+  }
 
   void *data;
-  vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
+  vmaMapMemory(allocator, stagingAlloc, &data);
   memcpy(data, pixels, static_cast<size_t>(imageSize));
-  vkUnmapMemory(device, stagingBufferMemory);
+  vmaUnmapMemory(allocator, stagingAlloc);
   stbi_image_free(pixels);
 
-  createImage(
-      texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
-      VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
+  createImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB,
+              VK_IMAGE_TILING_OPTIMAL,
+              VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+              VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT, textureImage,
+              textureImageAlloc);
 
   transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB,
                         VK_IMAGE_LAYOUT_UNDEFINED,
                         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
   copyBufferToImage(stagingBuffer, textureImage,
                     static_cast<uint32_t>(texWidth),
                     static_cast<uint32_t>(texHeight));
+
   transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB,
                         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-  vkDestroyBuffer(device, stagingBuffer, nullptr);
-  vkFreeMemory(device, stagingBufferMemory, nullptr);
+  vmaDestroyBuffer(allocator, stagingBuffer, stagingAlloc);
 }
 
 VkImageView Nighthawk::NighthawkEngine::createImageView(
@@ -858,8 +901,8 @@ void Nighthawk::NighthawkEngine::endSingleTimeCommands(
 
 void Nighthawk::NighthawkEngine::createImage(
     uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling,
-    VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage &image,
-    VkDeviceMemory &imageMemory) {
+    VkImageUsageFlags usage, VmaAllocationCreateFlags flags, VkImage &image,
+    VmaAllocation &alloc) {
   VkImageCreateInfo imageInfo{};
   imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
   imageInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -875,25 +918,15 @@ void Nighthawk::NighthawkEngine::createImage(
   imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
   imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-  if (vkCreateImage(device, &imageInfo, nullptr, &image) != VK_SUCCESS) {
+  VmaAllocationCreateInfo allocInfo = {};
+  allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+  allocInfo.flags = flags;
+  allocInfo.priority = 1.0f;
+
+  if (vmaCreateImage(allocator, &imageInfo, &allocInfo, &image, &alloc,
+                     nullptr) != VK_SUCCESS) {
     throw std::runtime_error("failed to create image!");
   }
-
-  VkMemoryRequirements memRequirements;
-  vkGetImageMemoryRequirements(device, image, &memRequirements);
-
-  VkMemoryAllocateInfo allocInfo{};
-  allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-  allocInfo.allocationSize = memRequirements.size;
-  allocInfo.memoryTypeIndex =
-      findMemoryType(memRequirements.memoryTypeBits, properties);
-
-  if (vkAllocateMemory(device, &allocInfo, nullptr, &imageMemory) !=
-      VK_SUCCESS) {
-    throw std::runtime_error("failed to allocate image memory!");
-  }
-
-  vkBindImageMemory(device, image, imageMemory, 0);
 }
 
 void Nighthawk::NighthawkEngine::createDescriptorPool() {
@@ -1002,10 +1035,10 @@ bool Nighthawk::NighthawkEngine::hasStencilComponent(VkFormat format) {
 void Nighthawk::NighthawkEngine::createDepthResources() {
   VkFormat depthFormat = findDepthFormat();
 
-  createImage(
-      swapChainExtent.width, swapChainExtent.height, depthFormat,
-      VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImage, depthImageMemory);
+  createImage(swapChainExtent.width, swapChainExtent.height, depthFormat,
+              VK_IMAGE_TILING_OPTIMAL,
+              VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, 0, depthImage,
+              depthImageAlloc);
   depthImageView =
       createImageView(depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
 
@@ -1019,6 +1052,7 @@ void Nighthawk::NighthawkEngine::initVulkan() {
   createSurface();
   pickPhysicalDevice();
   createLogicalDevice();
+  createVulkanMemoryAllocator();
   createSwapChain();
   createImageViews();
   createRenderPass();
@@ -1065,8 +1099,7 @@ void Nighthawk::NighthawkEngine::createSyncObjects() {
 
 void Nighthawk::NighthawkEngine::cleanupSwapChain() {
   vkDestroyImageView(device, depthImageView, nullptr);
-  vkDestroyImage(device, depthImage, nullptr);
-  vkFreeMemory(device, depthImageMemory, nullptr);
+  vmaDestroyImage(allocator, depthImage, depthImageAlloc);
 
   for (size_t i = 0; i < swapChainFramebuffers.size(); i++) {
     vkDestroyFramebuffer(device, swapChainFramebuffers[i], nullptr);
@@ -1099,8 +1132,6 @@ void Nighthawk::NighthawkEngine::recreateSwapChain() {
 }
 
 void Nighthawk::NighthawkEngine::createGraphicsPipeline() {
-
-
   auto vertCode = LoadShader("bin/shaders/triangle_vert.spv");
   auto fragCode = LoadShader("bin/shaders/triangle_frag.spv");
 
@@ -1528,8 +1559,7 @@ void Nighthawk::NighthawkEngine::cleanup() {
   vkDestroyRenderPass(device, renderPass, nullptr);
 
   for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-    vkDestroyBuffer(device, uniformBuffers[i], nullptr);
-    vkFreeMemory(device, uniformBuffersMemory[i], nullptr);
+    vmaDestroyBuffer(allocator, uniformBuffers[i], uniformBuffersAlloc[i]);
   }
 
   vkDestroyDescriptorPool(device, descriptorPool, nullptr);
@@ -1537,16 +1567,14 @@ void Nighthawk::NighthawkEngine::cleanup() {
   vkDestroySampler(device, textureSampler, nullptr);
   vkDestroyImageView(device, textureImageView, nullptr);
 
-  vkDestroyImage(device, textureImage, nullptr);
-  vkFreeMemory(device, textureImageMemory, nullptr);
+  vmaDestroyImage(allocator, textureImage, textureImageAlloc);
 
   vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
 
-  vkDestroyBuffer(device, indexBuffer, nullptr);
-  vkFreeMemory(device, indexBufferMemory, nullptr);
+  vmaDestroyBuffer(allocator, indexBuffer, indexBufferAlloc);
+  vmaDestroyBuffer(allocator, vertexBuffer, vertexBufferAlloc);
 
-  vkDestroyBuffer(device, vertexBuffer, nullptr);
-  vkFreeMemory(device, vertexBufferMemory, nullptr);
+  vmaDestroyAllocator(allocator);
 
   for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
     vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
