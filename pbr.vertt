@@ -1,0 +1,24 @@
+#version 450
+
+layout(location = 0) in vec3 inPosition;
+layout(location = 1) in vec3 inColor0;
+layout(location = 2) in vec3 inUV0;
+layout (binding=0) uniform UBO {
+  mat4 model;
+  mat4 view;
+  mat4 proj;
+} ubo;
+
+layout(location = 0) out vec3 outWorldPos;
+layout(location = 1) out vec3 outUV0;
+layout(location = 2) out vec3 outColor0;
+
+void main() {
+  vec4 locPos = ubo.model * vec4(inPosition, 1.0);
+  locPos.y = -locPos.y;
+  outWorldPos = locPos.xyz / locPos.w;
+  outUV0 = inUV0;
+  outColor0 = inColor0;
+
+  gl_Position = ubo.proj * ubo.view * vec4(outWorldPos, 1.0);
+}

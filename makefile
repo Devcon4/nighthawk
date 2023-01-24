@@ -16,6 +16,8 @@ glslc: src/shaders/**
 resources: glslc
 		mkdir -p bin/textures
 		cp -r src/textures/ bin/
+		mkdir -p bin/resources
+		cp -r src/resources bin/
 
 test: bin/nighthawk
 		./bin/nighthawk

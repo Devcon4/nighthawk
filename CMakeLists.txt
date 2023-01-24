@@ -8,9 +8,9 @@ project ("Nighthawk")
 # Add source to this project's executable.
 add_executable (Nighthawk "src/main.cpp" "src/engine/engine.cpp" "src/engine/engine.h")
 
-include_directories("/mnt/c/VulkanSDK/1.3.211.0/Include")
+include_directories("C:/VulkanSDK/1.3.211.0/Include")
 
-find_package(glfw3 REQUIRED)
+find_package(glfw REQUIRED)
 find_package(glm REQUIRED)
 find_package(Vulkan REQUIRED)
 find_package(Vulkan COMPONENTS glslc)
@@ -23,47 +23,49 @@ set_target_properties(json PROPERTIES LINKER_LANGUAGE CXX)
 set_target_properties(tinygltf PROPERTIES LINKER_LANGUAGE CXX)
 set_target_properties(vkMemAlloc PROPERTIES LINKER_LANGUAGE CXX)
 
-target_link_libraries(Nighthawk PRIVATE Engine stbImage Vulkan::Vulkan glfw glm::glm tinygltf json)
+target_link_libraries(Nighthawk PRIVATE glfw3)
+target_link_libraries(Nighthawk PRIVATE Engine)
+target_link_libraries(Nighthawk PRIVATE stbImage)
+target_link_libraries(Nighthawk PRIVATE Vulkan::Vulkan)
+target_link_libraries(Nighthawk PRIVATE glm::glm)
+target_link_libraries(Nighthawk PRIVATE tinygltf)
+target_link_libraries(Nighthawk PRIVATE json)
 
-target_include_directories(Nighthawk PUBLIC "${PROJECT_BINARY_DIR}" "${PROJECT_BINARY_DIR}/lib/engine" "${PROJECT_BINARY_DIR}/bin")
+target_include_directories(Nighthawk PUBLIC "${PROJECT_BINARY_DIR}" "${PROJECT_BINARY_DIR}/lib/engine")
 
-file( COPY ${CMAKE_CURRENT_SOURCE_DIR}/bin DESTINATION ${CMAKE_CURRENT_BINARY_DIR} )
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/bin/resources)
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/src/resources DESTINATION ${CMAKE_BINARY_DIR}/bin )
 
 # TODO: Add tests and install targets if needed.
 
-if (${CMAKE_HOST_SYSTEM_PROCESSOR} STREQUAL "AMD64")
-  set(GLSL_VALIDATOR "$ENV{VULKAN_SDK}/Bin/glslangValidator.exe")
-else()
-  set(GLSL_VALIDATOR "$ENV{VULKAN_SDK}/Bin32/glslangValidator.exe")
-endif()
-list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
+function(add_shader TARGET SHADER)
+    find_program(GLSLC glslc)
 
-file(GLOB_RECURSE GLSL_SOURCE_FILES
-    "shaders/*.frag"
-    "shaders/*.vert"
+    set(current-shader-path ${CMAKE_CURRENT_SOURCE_DIR}/src/shaders/${SHADER})
+    string(REPLACE . _ shader-name ${SHADER})
+    set(current-output-path ${CMAKE_BINARY_DIR}/bin/shaders/${shader-name}.spv)
+
+    # Add a custom command to compile GLSL to SPIR-V.
+    get_filename_component(current-output-dir ${current-output-path} DIRECTORY)
+    file(MAKE_DIRECTORY ${current-output-dir})
+
+    add_custom_command(
+           OUTPUT ${current-output-path}
+           COMMAND ${GLSLC} -o ${current-output-path} ${current-shader-path}
+           DEPENDS ${current-shader-path}
+           IMPLICIT_DEPENDS CXX ${current-shader-path}
+           VERBATIM)
+
+    # Make sure our build depends on this output.
+    set_source_files_properties(${current-output-path} PROPERTIES GENERATED TRUE)
+    target_sources(${TARGET} PRIVATE ${current-output-path})
+endfunction(add_shader)
+
+file(GLOB_RECURSE GLSL_SOURCE_FILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}/src/shaders
+    "*.frag"
+    "*.vert"
     )
 
 foreach(GLSL ${GLSL_SOURCE_FILES})
-  get_filename_component(FILE_NAME ${GLSL} NAME)
-  set(SPIRV "${PROJECT_BINARY_DIR}/shaders/${FILE_NAME}.spv")
-  add_custom_command(
-    OUTPUT ${SPIRV}
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${PROJECT_BINARY_DIR}/shaders/"
-    COMMAND ${GLSL_VALIDATOR} -V ${GLSL} -o ${SPIRV}
-    DEPENDS ${GLSL})
-  list(APPEND SPIRV_BINARY_FILES ${SPIRV})
+  ADD_SHADER(Nighthawk ${GLSL})
 endforeach(GLSL)
-
-add_custom_target(
-    Shaders 
-    DEPENDS ${SPIRV_BINARY_FILES}
-    )
-
-add_dependencies(Nighthawk Shaders)
-
-add_custom_command(TARGET Nighthawk POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:Nighthawk>/shaders/"
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${PROJECT_BINARY_DIR}/shaders"
-        "$<TARGET_FILE_DIR:Nighthawk>/shaders"
-        )

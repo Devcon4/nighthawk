@@ -1,0 +1,16 @@
+#version 450
+
+layout(location = 0) in vec3 inWorldPos;
+layout(location = 1) in vec2 inUV0;
+layout(location = 2) in vec4 inColor0;
+
+layout(binding=0) uniform UBO {
+  mat4 model;
+  mat4 view;
+  mat4 proj;
+} ubo;
+
+void main() {
+    float percentage = 0;
+    outColor = vec4(texture(texSampler, fragTexCoord).rgb, 1.0);
+}

@@ -13,57 +13,28 @@
 #include <limits>
 #include <optional>
 #include <set>
+#include <unordered_map>
 #include <vector>
+
+#define TINYGLTF_IMPLEMENTATION
+#include "../../lib/tiny_gltf.h"
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "../../lib/stb_image.h"
 
-#define VMA_VULKAN_VERSION 1002000
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "../../lib/stb_image_write.h"
+
 #define VMA_STATIC_VULKAN_FUNCTIONS 0
 #define VMA_DYNAMIC_VULKAN_FUNCTIONS 1
 #define VMA_IMPLEMENTATION
 #include "../../lib/vk_mem_alloc.h"
-
-struct Vertex {
-  glm::vec3 pos;
-  glm::vec3 color;
-  glm::vec2 texCoord;
-
-  static VkVertexInputBindingDescription getBindingDescription() {
-    VkVertexInputBindingDescription bindingDescription{};
-    bindingDescription.binding = 0;
-    bindingDescription.stride = sizeof(Vertex);
-    bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-    return bindingDescription;
-  }
-
-  static std::array<VkVertexInputAttributeDescription, 3>
-  getAttributeDescriptions() {
-    std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
-
-    attributeDescriptions[0].binding = 0;
-    attributeDescriptions[0].location = 0;
-    attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-    attributeDescriptions[0].offset = offsetof(Vertex, pos);
-
-    attributeDescriptions[1].binding = 0;
-    attributeDescriptions[1].location = 1;
-    attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-    attributeDescriptions[1].offset = offsetof(Vertex, color);
-
-    attributeDescriptions[2].binding = 0;
-    attributeDescriptions[2].location = 2;
-    attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
-    attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
-
-    return attributeDescriptions;
-  }
-};
 
 struct UniformBufferObject {
   alignas(16) glm::mat4 model;
@@ -71,18 +42,18 @@ struct UniformBufferObject {
   alignas(16) glm::mat4 proj;
 };
 
-const std::vector<Vertex> vertices = {
-    {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-    {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-    {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-    {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
+ //const std::vector<Nighthawk::Vertex> vertices = {
+ //    {{-0.5f, -0.5f, 0.0f}, {0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}},
+ //    {{0.5f, -0.5f, 0.0f}, {1.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},
+ //    {{0.5f, 0.5f, 0.0f}, {1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}},
+ //    {{-0.5f, 0.5f, 0.0f}, {0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}},
 
-    {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-    {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-    {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-    {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}};
+ //    {{-0.5f, -0.5f, -0.5f}, {0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}},
+ //    {{0.5f, -0.5f, -0.5f}, {1.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},
+ //    {{0.5f, 0.5f, -0.5f}, {1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}},
+ //    {{-0.5f, 0.5f, -0.5f}, {0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}};
 
-const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4};
+ //const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4};
 
 struct ShaderConstants {
   float elapsed_time;
@@ -107,7 +78,8 @@ struct SwapChainSupportDetails {
 };
 
 const std::vector<const char *> deviceExtensions = {
-    VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+    VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+// VK_EXT_DEPTH_CLIP_CONTROL_EXTENSION_NAME
 
 SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device,
                                               VkSurfaceKHR surface) {
@@ -154,38 +126,161 @@ std::vector<char> Nighthawk::LoadShader(const std::string &path) {
   file.seekg(0);
   file.read(buffer.data(), fileSize);
 
-  std::cout << "Loaded shader: " + path + "\n";
+  std::cout << "Loaded shader: " << fullPath << std::endl;
   file.close();
   return buffer;
 }
 
-// tinygltf::Model loadModel(const std::string path) {
-//   tinygltf::Model model;
-//   tinygltf::TinyGLTF loader;
-//   std::string err;
-//   std::string warn;
-//   bool ret = loader.LoadASCIIFromFile(&model, &err, &warn, path);
+void Nighthawk::NighthawkEngine::loadNode(tinygltf::Model &model,
+                                          tinygltf::Node &node) {
+  // TODO: Load children nodes recursivly;
+  // TODO: Store node matrix;
 
-//   if (!err.empty()) {
-//     printf("Error: %s\n", err.c_str());
-//   }
+  if (node.mesh < 0) return;
+  auto currentMesh = model.meshes[node.mesh];
+  size_t primitiveCount = currentMesh.primitives.size();
 
-//   if (!warn.empty()) {
-//     printf("Warn: %s\n", warn.c_str());
-//   }
+  const float *bufferPos = nullptr;
+  const float *bufferColorSet0 = nullptr;
+  const float *bufferTexCoordSet0 = nullptr;
+  const float *bufferNormals = nullptr;
 
-//   if (!ret) {
-//     throw std::runtime_error("failed to parse model: " + path + "\n");
-//   }
-// }
+  int posByteStride;
+  int color0ByteStride;
+  int uv0ByteStride;
+  int normByteStride;
+
+  for (size_t i = 0; i < primitiveCount; i++) {
+    auto primitive = currentMesh.primitives[i];
+
+    auto &posAccessor =
+        model.accessors[primitive.attributes.find("POSITION")->second];
+    auto &posView = model.bufferViews[posAccessor.bufferView];
+    posByteStride = posAccessor.ByteStride(posView)
+                        ? (posAccessor.ByteStride(posView) / sizeof(float))
+                        : tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC3);
+
+    bufferPos = reinterpret_cast<const float *>(
+        &(model.buffers[posView.buffer]
+              .data[posAccessor.byteOffset + posView.byteOffset]));
+
+    if (primitive.attributes.find("NORMAL") != primitive.attributes.end()) {
+      const tinygltf::Accessor &accessor =
+          model.accessors[primitive.attributes.find("NORMAL")->second];
+      const tinygltf::BufferView &view = model.bufferViews[accessor.bufferView];
+
+      bufferNormals = reinterpret_cast<const float *>(
+          &(model.buffers[view.buffer]
+                .data[accessor.byteOffset + view.byteOffset]));
+      normByteStride =
+          accessor.ByteStride(view)
+              ? (accessor.ByteStride(view) / sizeof(float))
+              : tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC3);
+    }
+
+    if (primitive.attributes.find("TEXCOORD_0") != primitive.attributes.end()) {
+      const tinygltf::Accessor &accessor =
+          model.accessors[primitive.attributes.find("TEXCOORD_0")->second];
+      const tinygltf::BufferView &view = model.bufferViews[accessor.bufferView];
+
+      bufferTexCoordSet0 = reinterpret_cast<const float *>(
+          &(model.buffers[view.buffer]
+                .data[accessor.byteOffset + view.byteOffset]));
+      uv0ByteStride =
+          accessor.ByteStride(view)
+              ? (accessor.ByteStride(view) / sizeof(float))
+              : tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC2);
+    }
+
+    if (primitive.attributes.find("COLOR_0") != primitive.attributes.end()) {
+      const tinygltf::Accessor &accessor =
+          model.accessors[primitive.attributes.find("COLOR_0")->second];
+      const tinygltf::BufferView &view = model.bufferViews[accessor.bufferView];
+
+      bufferColorSet0 = reinterpret_cast<const float *>(
+          &(model.buffers[view.buffer]
+                .data[accessor.byteOffset + view.byteOffset]));
+      color0ByteStride =
+          accessor.ByteStride(view)
+              ? (accessor.ByteStride(view) / sizeof(float))
+              : tinygltf::GetNumComponentsInType(TINYGLTF_TYPE_VEC3);
+    }
+
+    // vertices.resize(vertices.size() + posAccessor.count);
+
+    for (size_t v = 0; v < posAccessor.count; v++) {
+      Vertex vert = {};
+      vert.pos = glm::make_vec3(&bufferPos[v * posByteStride]);
+      vert.texCoord =
+          bufferTexCoordSet0
+              ? glm::make_vec2(&bufferTexCoordSet0[v * uv0ByteStride])
+              : glm::vec2(1.0f);
+      vert.color = bufferColorSet0
+                       ? glm::make_vec3(&bufferColorSet0[v * color0ByteStride])
+                       : glm::vec3(1.0f);
+
+      vertices.push_back(vert);
+    }
+    // TODO: check if indices are missing.
+    const tinygltf::Accessor &accessor = model.accessors[primitive.indices];
+    const tinygltf::BufferView &view = model.bufferViews[accessor.bufferView];
+    const tinygltf::Buffer &buff = model.buffers[view.buffer];
+    const void *dataPtr = &(buff.data[accessor.byteOffset + view.byteOffset]);
+    // indices.resize(indices.size() + accessor.count);
+
+    switch (accessor.componentType) {
+      case TINYGLTF_PARAMETER_TYPE_UNSIGNED_SHORT: {
+        const uint16_t *buf = static_cast<const uint16_t *>(dataPtr);
+        for (size_t i = 0; i < accessor.count; i++) {
+          indices.push_back(buf[i]);
+        }
+        return;
+      }
+      default: {
+        std::cerr << "Index component type " << accessor.componentType
+                  << " not supported!" << std::endl;
+        return;
+      }
+    }
+  }
+}
+
+tinygltf::Model Nighthawk::NighthawkEngine::loadModel(const std::string &path) {
+  tinygltf::Model model;
+  tinygltf::TinyGLTF loader;
+  std::string err;
+  std::string warn;
+  auto fullPath = std::filesystem::current_path() / path;
+  bool ret = loader.LoadASCIIFromFile(&model, &err, &warn, fullPath.string());
+
+  if (!err.empty()) {
+    printf("Error: %s\n", err.c_str());
+  }
+
+  if (!warn.empty()) {
+    printf("Warn: %s\n", warn.c_str());
+  }
+
+  if (!ret) {
+    throw std::runtime_error("failed to parse model: " + path + "\n");
+  }
+
+  for (auto &node : model.nodes) {
+    loadNode(model, node);
+  }
+
+  return model;
+}
 
 void Nighthawk::NighthawkEngine::createVulkanMemoryAllocator() {
   VmaVulkanFunctions vulkanFunctions = {};
   vulkanFunctions.vkGetInstanceProcAddr = &vkGetInstanceProcAddr;
   vulkanFunctions.vkGetDeviceProcAddr = &vkGetDeviceProcAddr;
+  vulkanFunctions.vkGetDeviceBufferMemoryRequirements = &vkGetDeviceBufferMemoryRequirements;
+  vulkanFunctions.vkGetDeviceImageMemoryRequirements = &vkGetDeviceImageMemoryRequirements;
 
   VmaAllocatorCreateInfo allocatorCreateInfo = {};
-  allocatorCreateInfo.vulkanApiVersion = VK_API_VERSION_1_2;
+  allocatorCreateInfo.vulkanApiVersion = VK_API_VERSION_1_3;
   allocatorCreateInfo.physicalDevice = physicalDevice;
   allocatorCreateInfo.device = device;
   allocatorCreateInfo.instance = instance;
@@ -253,18 +348,20 @@ bool isDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface) {
   bool extensionsSupported = checkDeviceExtensionSupport(device);
 
   bool swapChainAdequate = false;
+  bool depthClipControl = false;
   if (extensionsSupported) {
     SwapChainSupportDetails swapChainSupport =
         querySwapChainSupport(device, surface);
     swapChainAdequate = !swapChainSupport.formats.empty() &&
                         !swapChainSupport.presentModes.empty();
+    
   }
 
-  VkPhysicalDeviceFeatures supportedFeatures;
-  vkGetPhysicalDeviceFeatures(device, &supportedFeatures);
+  VkPhysicalDeviceFeatures2 supportedFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
+  vkGetPhysicalDeviceFeatures2(device, &supportedFeatures);
 
   return indices.isComplete() && extensionsSupported && swapChainAdequate &&
-         supportedFeatures.samplerAnisotropy;
+         supportedFeatures.features.samplerAnisotropy;
 }
 
 VkSurfaceFormatKHR chooseSwapSurfaceFormat(
@@ -399,7 +496,7 @@ void Nighthawk::NighthawkEngine::createInstance() {
   appInfo.applicationVersion = VK_MAKE_VERSION(0, 0, 1);
   appInfo.pEngineName = "Nighthawk";
   appInfo.engineVersion = VK_MAKE_VERSION(0, 0, 1);
-  appInfo.apiVersion = VK_API_VERSION_1_2;
+  appInfo.apiVersion = VK_API_VERSION_1_3;
 
   VkInstanceCreateInfo createInfo{};
   createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -509,29 +606,35 @@ void Nighthawk::NighthawkEngine::drawFrame() {
 
 void Nighthawk::NighthawkEngine::updateUniformBuffer(uint32_t currentImage) {
   static auto startTime = std::chrono::high_resolution_clock::now();
-
   auto currentTime = std::chrono::high_resolution_clock::now();
+  static auto previousTime = currentTime;
+
   float time = std::chrono::duration<float, std::chrono::seconds::period>(
                    currentTime - startTime)
                    .count();
+  float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(
+      currentTime - previousTime)
+      .count();
+
+  std::cout << "time: " << time << "; Δ: " << deltaTime << std::endl;
 
   UniformBufferObject ubo{};
   // Rotate
-  // ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f),
-  //                         glm::vec3(0.0f, 0.0f, 1.0f));
-  ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(0.0f),
+  ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f),
                           glm::vec3(0.0f, 0.0f, 1.0f));
+  //ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f),
+  //                        glm::vec3(1.0f, 0.0f, 1.0f));
 
   ubo.view =
-      glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f),
+      glm::lookAt(glm::vec3(3.0f, 3.0f, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f),
                   glm::vec3(0.0f, 0.0f, 1.0f));
 
   ubo.proj = glm::perspective(
       glm::radians(45.0f),
-      swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
+      swapChainExtent.width / (float)swapChainExtent.height, 0.01f, 10.0f);
 
   // fix glm/openGL oriented Y cord.
-  ubo.proj[1][1] *= -1;
+   ubo.proj[1][1] *= -1;
 
   memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
 }
@@ -572,8 +675,17 @@ void Nighthawk::NighthawkEngine::createDescriptorSetLayout() {
   samplerLayoutBinding.pImmutableSamplers = nullptr;
   samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-  std::array<VkDescriptorSetLayoutBinding, 2> bindings = {uboLayoutBinding,
-                                                          samplerLayoutBinding};
+  VkDescriptorSetLayoutBinding normalSamplerLayoutBinding{};
+  normalSamplerLayoutBinding.binding = 2;
+  normalSamplerLayoutBinding.descriptorCount = 1;
+  normalSamplerLayoutBinding.descriptorCount = 1;
+  normalSamplerLayoutBinding.descriptorType =
+      VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+  normalSamplerLayoutBinding.pImmutableSamplers = nullptr;
+  normalSamplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+  std::array<VkDescriptorSetLayoutBinding, 3> bindings = {
+      uboLayoutBinding, samplerLayoutBinding, normalSamplerLayoutBinding};
 
   VkDescriptorSetLayoutCreateInfo layoutInfo{};
   layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -759,10 +871,64 @@ void Nighthawk::NighthawkEngine::createVertexBuffer() {
   vmaDestroyBuffer(allocator, stagingBuffer, stagingAlloc);
 }
 
+void Nighthawk::NighthawkEngine::createNormalImage() {
+  int texWidth, texHeight, texChannels;
+  stbi_uc *pixels =
+      stbi_load("bin/resources/damagedHelmet/Default_normal.jpg", &texWidth,
+                &texHeight, &texChannels, STBI_rgb_alpha);
+
+  if (!pixels) {
+    throw std::runtime_error("Failed to load normal image!");
+  }
+
+  VkDeviceSize imageSize = texWidth * texHeight * 4;
+
+  VkBufferCreateInfo bufferInfo = {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+  bufferInfo.size = imageSize;
+  bufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+
+  VmaAllocationCreateInfo stagingAllocInfo = {};
+  stagingAllocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+  stagingAllocInfo.flags =
+      VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+
+  VkBuffer stagingBuffer;
+  VmaAllocation stagingAlloc;
+
+  if (vmaCreateBuffer(allocator, &bufferInfo, &stagingAllocInfo, &stagingBuffer,
+                      &stagingAlloc, nullptr) != VK_SUCCESS) {
+    throw std::runtime_error("Failed to create buffer!");
+  }
+
+  void *data;
+  vmaMapMemory(allocator, stagingAlloc, &data);
+  memcpy(data, pixels, static_cast<size_t>(imageSize));
+  vmaUnmapMemory(allocator, stagingAlloc);
+  stbi_image_free(pixels);
+
+  createImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB,
+              VK_IMAGE_TILING_OPTIMAL,
+              VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+              VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT, normalImage,
+              normalImageAlloc);
+  transitionImageLayout(normalImage, VK_FORMAT_R8G8B8A8_SRGB,
+                        VK_IMAGE_LAYOUT_UNDEFINED,
+                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+  copyBufferToImage(stagingBuffer, textureImage,
+                    static_cast<uint32_t>(texWidth),
+                    static_cast<uint32_t>(texHeight));
+  transitionImageLayout(normalImage, VK_FORMAT_R8G8B8A8_SRGB,
+                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+  vmaDestroyBuffer(allocator, stagingBuffer, stagingAlloc);
+}
+
 void Nighthawk::NighthawkEngine::createTextureImage() {
   int texWidth, texHeight, texChannels;
-  stbi_uc *pixels = stbi_load("bin/textures/owl-1.jpg", &texWidth, &texHeight,
-                              &texChannels, STBI_rgb_alpha);
+  stbi_uc *pixels =
+      stbi_load("bin/resources/damagedHelmet/Default_albedo.jpg", &texWidth,
+                &texHeight, &texChannels, STBI_rgb_alpha);
 
   if (!pixels) {
     throw std::runtime_error("failed to load texture image!");
@@ -835,6 +1001,31 @@ VkImageView Nighthawk::NighthawkEngine::createImageView(
   return imageView;
 }
 
+void Nighthawk::NighthawkEngine::createNormalSampler() {
+  VkPhysicalDeviceProperties properties{};
+  vkGetPhysicalDeviceProperties(physicalDevice, &properties);
+
+  VkSamplerCreateInfo samplerInfo{};
+  samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+  samplerInfo.magFilter = VK_FILTER_LINEAR;
+  samplerInfo.minFilter = VK_FILTER_LINEAR;
+  samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+  samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+  samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+  samplerInfo.anisotropyEnable = VK_TRUE;
+  samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
+  samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+  samplerInfo.unnormalizedCoordinates = VK_FALSE;
+  samplerInfo.compareEnable = VK_FALSE;
+  samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+  samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+
+  if (vkCreateSampler(device, &samplerInfo, nullptr, &normalSampler) !=
+      VK_SUCCESS) {
+    throw std::runtime_error("failed to create texture sampler!");
+  }
+}
+
 void Nighthawk::NighthawkEngine::createTextureSampler() {
   VkPhysicalDeviceProperties properties{};
   vkGetPhysicalDeviceProperties(physicalDevice, &properties);
@@ -863,6 +1054,11 @@ void Nighthawk::NighthawkEngine::createTextureSampler() {
 void Nighthawk::NighthawkEngine::createTextureImageView() {
   textureImageView = createImageView(textureImage, VK_FORMAT_R8G8B8A8_SRGB,
                                      VK_IMAGE_ASPECT_COLOR_BIT);
+}
+
+void Nighthawk::NighthawkEngine::createNormalImageView() {
+  normalImageView = createImageView(normalImage, VK_FORMAT_R8G8B8A8_SRGB,
+                                    VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
 VkCommandBuffer Nighthawk::NighthawkEngine::beginSingleTimeCommands() {
@@ -977,6 +1173,11 @@ void Nighthawk::NighthawkEngine::createDescriptorSets() {
     imageInfo.imageView = textureImageView;
     imageInfo.sampler = textureSampler;
 
+    // VkDescriptorImageInfo normalInfo{};
+    // imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    // imageInfo.imageView = normalImageView;
+    // imageInfo.sampler = normalSampler;
+
     std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
 
     descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -995,6 +1196,15 @@ void Nighthawk::NighthawkEngine::createDescriptorSets() {
         VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     descriptorWrites[1].descriptorCount = 1;
     descriptorWrites[1].pImageInfo = &imageInfo;
+
+    /*descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrites[2].dstSet = descriptorSets[i];
+    descriptorWrites[2].dstBinding = 1;
+    descriptorWrites[2].dstArrayElement = 0;
+    descriptorWrites[2].descriptorType =
+        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorWrites[2].descriptorCount = 1;
+    descriptorWrites[2].pImageInfo = &imageInfo;*/
 
     vkUpdateDescriptorSets(device,
                            static_cast<uint32_t>(descriptorWrites.size()),
@@ -1037,8 +1247,9 @@ void Nighthawk::NighthawkEngine::createDepthResources() {
 
   createImage(swapChainExtent.width, swapChainExtent.height, depthFormat,
               VK_IMAGE_TILING_OPTIMAL,
-              VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, 0, depthImage,
-              depthImageAlloc);
+              VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+              VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+              depthImage, depthImageAlloc);
   depthImageView =
       createImageView(depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
 
@@ -1062,8 +1273,11 @@ void Nighthawk::NighthawkEngine::initVulkan() {
   createDepthResources();
   createFramebuffers();
   createTextureImage();
+  // createNormalImage();
   createTextureImageView();
+  // createNormalImageView();
   createTextureSampler();
+  // createNormalSampler();
   createVertexBuffer();
   createIndexBuffer();
   createUniformBuffers();
@@ -1135,6 +1349,9 @@ void Nighthawk::NighthawkEngine::createGraphicsPipeline() {
   auto vertCode = LoadShader("bin/shaders/triangle_vert.spv");
   auto fragCode = LoadShader("bin/shaders/triangle_frag.spv");
 
+  auto helmetModel =
+      loadModel("bin/resources/damagedHelmet/DamagedHelmet.gltf");
+
   VkShaderModule vertModule = createShaderModule(device, vertCode);
   VkShaderModule fragModule = createShaderModule(device, fragCode);
 
@@ -1173,10 +1390,15 @@ void Nighthawk::NighthawkEngine::createGraphicsPipeline() {
   inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
   inputAssembly.primitiveRestartEnable = VK_FALSE;
 
+  //VkPipelineViewportDepthClipControlCreateInfoEXT depthClipControlInfo{};
+  //depthClipControlInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_DEPTH_CLIP_CONTROL_CREATE_INFO_EXT;
+  //depthClipControlInfo.negativeOneToOne = VK_TRUE;
+
   VkPipelineViewportStateCreateInfo viewportState{};
   viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
   viewportState.viewportCount = 1;
   viewportState.scissorCount = 1;
+  //viewportState.pNext = &depthClipControlInfo;
 
   VkPipelineRasterizationStateCreateInfo rasterizer{};
   rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
@@ -1191,12 +1413,9 @@ void Nighthawk::NighthawkEngine::createGraphicsPipeline() {
   VkPipelineMultisampleStateCreateInfo multisampling{};
   multisampling.sType =
       VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-  multisampling.sampleShadingEnable = VK_FALSE;
   multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
-  VkPipelineDepthStencilStateCreateInfo depthStencil{};
-  depthStencil.sType =
-      VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+  VkPipelineDepthStencilStateCreateInfo depthStencil{ VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO };
   depthStencil.depthTestEnable = VK_TRUE;
   depthStencil.depthWriteEnable = VK_TRUE;
   depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
@@ -1559,6 +1778,7 @@ void Nighthawk::NighthawkEngine::cleanup() {
   vkDestroyRenderPass(device, renderPass, nullptr);
 
   for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+    vmaUnmapMemory(allocator, uniformBuffersAlloc[i]);
     vmaDestroyBuffer(allocator, uniformBuffers[i], uniformBuffersAlloc[i]);
   }
 
@@ -1567,6 +1787,7 @@ void Nighthawk::NighthawkEngine::cleanup() {
   vkDestroySampler(device, textureSampler, nullptr);
   vkDestroyImageView(device, textureImageView, nullptr);
 
+  vmaDestroyImage(allocator, normalImage, normalImageAlloc);
   vmaDestroyImage(allocator, textureImage, textureImageAlloc);
 
   vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
@@ -1702,8 +1923,11 @@ void Nighthawk::NighthawkEngine::createLogicalDevice() {
     queueCreateInfos.push_back(queueCreateInfo);
   }
 
-  VkPhysicalDeviceFeatures deviceFeatures{};
-  deviceFeatures.samplerAnisotropy = VK_TRUE;
+  VkPhysicalDeviceFeatures2 deviceFeatures{};
+  deviceFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+  deviceFeatures.features.samplerAnisotropy = VK_TRUE;
+
+  vkGetPhysicalDeviceFeatures2(physicalDevice, &deviceFeatures);
 
   VkDeviceCreateInfo createInfo{};
   createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -1711,7 +1935,6 @@ void Nighthawk::NighthawkEngine::createLogicalDevice() {
       static_cast<uint32_t>(queueCreateInfos.size());
   createInfo.pQueueCreateInfos = queueCreateInfos.data();
 
-  createInfo.pEnabledFeatures = &deviceFeatures;
   createInfo.enabledExtensionCount =
       static_cast<uint32_t>(deviceExtensions.size());
   createInfo.ppEnabledExtensionNames = deviceExtensions.data();
@@ -1723,6 +1946,7 @@ void Nighthawk::NighthawkEngine::createLogicalDevice() {
   } else {
     createInfo.enabledLayerCount = 0;
   }
+  createInfo.pNext = &deviceFeatures;
 
   if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) !=
       VK_SUCCESS) {

@@ -40,3 +40,7 @@ nighthawk
 vcpkg
 build
 .vs
+src/resources
+!src/resources/damagedHelmet
+CMakeFiles
+CMakeCache.txt

@@ -1,24 +1,6 @@
 {
-  "tasks": [
-    {
-      "hide": true,
-      "type": "cppbuild",
-      "label": "C/C++: Make Nighthawk",
-      "command": "make",
-      "args": [],
-      "options": {
-        "cwd": "${workspaceFolder}"
-      },
-      "problemMatcher": [
-        "$gcc"
-      ],
-      "detail": "Points to makefile."
-    },
-    {
-      "type": "shell",
-      "label": "Run Nighthawk",
-      "command": "./out/build/wsl/Nighthawk"
-    },
+	"version": "2.0.0",
+	"tasks": [
     {
       "type": "cmake",
       "label": "CMake: build",
@@ -34,6 +16,5 @@
       "problemMatcher": [],
       "detail": "CMake template build task"
     }
-  ],
-  "version": "2.0.0"
+  ]
 }
