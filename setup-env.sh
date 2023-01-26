@@ -35,24 +35,24 @@ done
 
 mkdir -p /lib/;
 
-[ ! -f "./lib/stb_image.h" ] && {
+[ ! -f "./src/engine/lib/stb_image.h" ] && {
   echo "${Yellow}Installing stb_image.h...${Color_Off}";
   wget -P ./lib/ "https://raw.githubusercontent.com/nothings/stb/master/stb_image.h";
 }
-[ ! -f "./lib/stb_image_write.h" ] && {
+[ ! -f "./src/engine/lib/stb_image_write.h" ] && {
   echo "${Yellow}Installing stb_image_write.h...${Color_Off}";
   wget -P ./lib/ "https://raw.githubusercontent.com/nothings/stb/master/stb_image_write.h";
 }
 
-[ ! -f "./lib/json.hpp" ] && {
+[ ! -f "./src/engine/lib/json.hpp" ] && {
   echo "${Yellow}Installing json.hpp...${Color_Off}";
   wget -P ./lib/ "https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp";
 }
-[ ! -f "./lib/tiny_gltf.h" ] && {
+[ ! -f "./src/engine/lib/tiny_gltf.h" ] && {
   echo "${Yellow}Installing tiny_gltf...${Color_Off}";
   wget -P ./lib/ "https://raw.githubusercontent.com/syoyo/tinygltf/release/tiny_gltf.h";
 }
-[ ! -f "./lib/vk_mem_alloc.h" ] && {
+[ ! -f "./src/engine/lib/vk_mem_alloc.h" ] && {
   echo "${Yellow}Installing vulkan memory allocator...${Color_Off}";
   wget -P ./lib/ "https://raw.githubusercontent.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator/master/include/vk_mem_alloc.h";
 }

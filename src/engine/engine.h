@@ -13,9 +13,9 @@
 
 // #include "../../lib/json.hpp"
 
-#include "../../lib/tiny_gltf.h"
+#include "./lib/tiny_gltf.h"
 
-#include "../../lib/vk_mem_alloc.h"
+#include "./lib/vk_mem_alloc.h"
 
 namespace Nighthawk {
 std::vector<char> LoadShader(const std::string &path);

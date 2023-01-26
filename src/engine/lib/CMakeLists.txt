@@ -1,0 +1,5 @@
+add_library(stbImage stb_image.h INTERFACE)
+add_library(stbImageWrite stb_image_write.h INTERFACE)
+add_library(tinygltf tiny_gltf.h INTERFACE)
+add_library(json json.hpp INTERFACE)
+add_library(vkMemAlloc vk_mem_alloc.h INTERFACE)

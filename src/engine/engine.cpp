@@ -17,7 +17,7 @@
 #include <vector>
 
 #define TINYGLTF_IMPLEMENTATION
-#include "../../lib/tiny_gltf.h"
+#include "./lib/tiny_gltf.h"
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -26,15 +26,15 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
-#include "../../lib/stb_image.h"
+#include "./lib/stb_image.h"
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "../../lib/stb_image_write.h"
+#include "./lib/stb_image_write.h"
 
 #define VMA_STATIC_VULKAN_FUNCTIONS 0
 #define VMA_DYNAMIC_VULKAN_FUNCTIONS 1
 #define VMA_IMPLEMENTATION
-#include "../../lib/vk_mem_alloc.h"
+#include "./lib/vk_mem_alloc.h"
 
 struct UniformBufferObject {
   alignas(16) glm::mat4 model;
@@ -1232,7 +1232,7 @@ VkFormat Nighthawk::NighthawkEngine::findSupportedFormat(
 
 VkFormat Nighthawk::NighthawkEngine::findDepthFormat() {
   return findSupportedFormat(
-      {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT,
+      {VK_FORMAT_D32_SFLOAT_S8_UINT,
        VK_FORMAT_D24_UNORM_S8_UINT},
       VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 }
